@@ -1,0 +1,9 @@
+[project]
+name = "ethbox"
+version = "0.0.1"
+description = "Delegation-aware Ethereum transaction simulator"
+requires-python = ">=3.10"
+dependencies = ["web3>=6.0,<7"]
+
+[project.scripts]
+ethbox-poc = "poc.main:main"
