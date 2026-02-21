@@ -104,11 +104,43 @@ The default fork block is **19,000,000** (~Jan 2024, ETH ~$2,400).
 
 ### Testing
 
-No test suite exists yet. When adding tests:
-- Use `pytest` as the test runner
-- Each test should spin up its own Anvil instance on a unique port to avoid collisions
-- Mock RPC URLs are not feasible — tests require a real mainnet RPC for forking
-- Consider a shared fixture that starts/stops Anvil per test session
+### Layered Testing Strategy
+
+Tests are organized into three layers, each catching different classes of issues:
+
+```
+tests/
+  conftest.py              — shared fixtures (Anvil start/stop, web3 connection)
+  test_caveats_unit.py     — pure function tests (no EVM, no fork)
+  test_caveats_local.py    — local Anvil: selector verification, mock contracts
+  test_integration_fork.py — mainnet fork: real bytecode, full swap flow
+```
+
+**Layer 1 — Unit tests (no EVM):** Test that `usdc_weth_swap_caveats()` returns the correct dict structure, selectors, and addresses. Fast, deterministic, no dependencies.
+
+```bash
+pytest tests/test_caveats_unit.py -v
+```
+
+**Layer 2 — Local EVM tests:** Deploy mock contracts on a fresh Anvil (no mainnet fork). Verify selectors work against deployed bytecode and the caveat map is internally consistent. Requires `anvil` on PATH.
+
+```bash
+pytest tests/test_caveats_local.py -v
+```
+
+**Layer 3 — Integration tests (mainnet fork):** Verify selectors against real SwapRouter02, execute the full approve→swap flow, check gas costs. Requires `RPC_URL` env var. These are smoke tests, not primary coverage.
+
+```bash
+RPC_URL="$RPC_URL" pytest tests/test_integration_fork.py -v
+```
+
+**Key design decisions:**
+- Session-scoped Anvil fixtures (one instance per test module, unique port per session)
+- `evm_snapshot`/`evm_revert` for state isolation between tests
+- Fork tests skip automatically when `RPC_URL` is not set
+- See `docs/caveat-testing-assessment.md` for the full rationale
+
+**Future: Delegation enforcement tests.** Full enforcement testing (deploying MetaMask's `DelegationManager` + `CaveatEnforcer` contracts, creating delegations, redeeming them, asserting revert on violations) requires the [MetaMask delegation-framework](https://github.com/MetaMask/delegation-framework) Solidity project. This is planned as a Foundry subproject.
 
 ### Code Conventions
 
