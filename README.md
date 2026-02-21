@@ -2,7 +2,7 @@
 
 Delegation-aware Ethereum transaction simulator. Validates the feasibility of delegated trading on Ethereum using MetaMask's Delegation Framework.
 
-**Status:** Phase 0 — Proof of Concept
+**Status:** Phase 0 complete (GO) — Phase 1 up next
 
 ## Overview
 
@@ -79,6 +79,21 @@ The script prints a final verdict:
 
 - **GO** — Swap executed successfully, price puppet within tolerance. Proceed to Phase 1.
 - **NO-GO** — Something failed. Investigate before continuing.
+
+## Roadmap
+
+### Phase 0 — Proof of Concept (complete)
+
+Validated core assumptions: Anvil fork pipeline, Uniswap swap execution, price puppeteering, and caveat resolution mapping. Verdict: **GO**.
+
+### Phase 1 — Delegation Enforcement
+
+- Deploy MetaMask's [`DelegationManager`](https://github.com/MetaMask/delegation-framework) + `CaveatEnforcer` contracts on the Anvil fork
+- Create delegations using the caveat structures from Phase 0 and redeem them through the delegation framework
+- Violation testing — assert on-chain reverts for wrong target, wrong method, and over-cap scenarios
+- Frontend for constructing and visualizing delegation intents
+- LLM-powered intent parsing (natural language → caveat structure)
+- Multi-token and multi-protocol support beyond USDC→WETH
 
 ## Contracts Used
 
