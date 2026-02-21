@@ -7,9 +7,11 @@ to the concrete caveat list that CaveatBuilder would produce:
   - ERC20TransferAmount -> cap on USDC spend
 """
 
+from __future__ import annotations
+
 from web3 import Web3
 
-from .constants import USDC, WETH, SWAP_ROUTER_02, POOL_FEE
+from .constants import USDC, WETH, SWAP_ROUTER_02, POOL_FEE, SwapPair
 
 # Function selectors (first 4 bytes of keccak)
 APPROVE_SELECTOR = Web3.keccak(text="approve(address,uint256)")[:4].hex()
@@ -43,6 +45,38 @@ def usdc_weth_swap_caveats(max_usdc: int, recipient: str) -> dict:
             "tokenIn": USDC,
             "tokenOut": WETH,
             "fee": POOL_FEE,
+            "recipient": recipient,
+        },
+    }
+
+
+def swap_caveats(pair: SwapPair, max_amount_in: int, recipient: str) -> dict:
+    """Return the caveat map for a delegated swap on any supported pair.
+
+    Parameters
+    ----------
+    pair : SwapPair
+        The swap pair definition (token_in, token_out, pool, fee).
+    max_amount_in : int
+        Maximum input token amount in raw units (respecting token decimals).
+    recipient : str
+        Address that will receive the output token.
+
+    Returns
+    -------
+    dict with keys matching MetaMask DelegationFramework caveat types.
+    """
+    return {
+        "AllowedTargets": [pair.token_in.address, SWAP_ROUTER_02],
+        "AllowedMethods": [APPROVE_SELECTOR, EXACT_INPUT_SINGLE_SELECTOR],
+        "ERC20TransferAmount": {
+            "token": pair.token_in.address,
+            "maxAmount": max_amount_in,
+        },
+        "SwapConstraints": {
+            "tokenIn": pair.token_in.address,
+            "tokenOut": pair.token_out.address,
+            "fee": pair.fee,
             "recipient": recipient,
         },
     }

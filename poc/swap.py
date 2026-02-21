@@ -1,10 +1,12 @@
-"""Execute a USDC -> WETH swap through Uniswap V3 SwapRouter02."""
+"""Execute swaps through Uniswap V3 SwapRouter02."""
+
+from __future__ import annotations
 
 from web3 import Web3
 
 from .constants import (
     USDC, WETH, SWAP_ROUTER_02, POOL_FEE,
-    ERC20_ABI, SWAP_ROUTER_ABI,
+    ERC20_ABI, SWAP_ROUTER_ABI, SwapPair,
 )
 
 
@@ -36,3 +38,45 @@ def swap_usdc_to_weth(w3: Web3, sender: str, amount_usdc: int) -> int:
     # Read WETH balance to determine output
     weth = w3.eth.contract(address=WETH, abi=ERC20_ABI)
     return weth.functions.balanceOf(sender).call()
+
+
+def swap(w3: Web3, sender: str, pair: SwapPair, amount_in: int) -> int:
+    """Swap *amount_in* of pair.token_in for pair.token_out.
+
+    Parameters
+    ----------
+    w3 : Web3
+        Connected web3 instance.
+    sender : str
+        Address executing the swap.
+    pair : SwapPair
+        The swap pair definition.
+    amount_in : int
+        Amount of input token in raw units (respecting token decimals).
+
+    Returns
+    -------
+    int
+        Balance of output token after the swap (in raw units).
+    """
+    token_in = w3.eth.contract(address=pair.token_in.address, abi=ERC20_ABI)
+    tx = token_in.functions.approve(SWAP_ROUTER_02, amount_in).transact(
+        {"from": sender}
+    )
+    w3.eth.wait_for_transaction_receipt(tx)
+
+    router = w3.eth.contract(address=SWAP_ROUTER_02, abi=SWAP_ROUTER_ABI)
+    tx = router.functions.exactInputSingle({
+        "tokenIn": pair.token_in.address,
+        "tokenOut": pair.token_out.address,
+        "fee": pair.fee,
+        "recipient": sender,
+        "amountIn": amount_in,
+        "amountOutMinimum": 0,
+        "sqrtPriceLimitX96": 0,
+    }).transact({"from": sender})
+    receipt = w3.eth.wait_for_transaction_receipt(tx)
+    assert receipt["status"] == 1, "Swap reverted"
+
+    token_out = w3.eth.contract(address=pair.token_out.address, abi=ERC20_ABI)
+    return token_out.functions.balanceOf(sender).call()

@@ -12,7 +12,7 @@ ETHbox simulates Ethereum transactions in a forked mainnet environment, with a f
 
 - **Phase 0 (complete):** Proof of concept (~200 lines Python, no frontend, no LLM). Validates three core assumptions: Anvil fork pipeline, price puppeteering, and caveat resolution mapping. Verdict: **GO**.
 - **Phase 1 (in progress):** Delegation enforcement. Structured `Delegation` / `Caveat` data model, off-chain enforcement engine, on-chain enforcer contracts (hand-assembled EVM bytecode), violation testing, delegated call execution via Anvil impersonation.
-- **Phase 1 remaining:** Full MetaMask DelegationManager integration, frontend, LLM-powered intent parsing, multi-token support.
+- **Phase 1 remaining:** Full MetaMask DelegationManager integration, frontend, LLM-powered intent parsing.
 
 ### Module Layout
 
@@ -20,10 +20,10 @@ ETHbox simulates Ethereum transactions in a forked mainnet environment, with a f
 poc/
   main.py        — Entry point. Orchestrates the 4-step POC pipeline.
   fork.py        — Anvil lifecycle (start/stop), web3 connection, balance injection via storage slot overwrite.
-  swap.py        — USDC→WETH swap execution through Uniswap V3 SwapRouter02.
+  swap.py        — Token swap execution through Uniswap V3 SwapRouter02. Generic swap() for any SwapPair.
   price.py       — Read Uniswap pool and Chainlink oracle prices. Manipulate pool price via large directional swaps.
-  caveats.py     — Map delegation intents to MetaMask CaveatBuilder caveat structures.
-  constants.py   — Mainnet contract addresses, minimal ABIs, storage slot indices.
+  caveats.py     — Map delegation intents to MetaMask CaveatBuilder caveat structures. Generic swap_caveats() for any SwapPair.
+  constants.py   — Token/SwapPair registry (TOKENS, PAIRS), mainnet addresses, minimal ABIs, storage slot indices.
   delegation.py  — Phase 1: Delegation/Caveat data model, off-chain enforcement, delegated call execution.
   enforcers.py   — Phase 1: On-chain enforcer contracts as hand-assembled EVM bytecode.
 
@@ -65,9 +65,14 @@ Anvil's `anvil_setStorageAt` RPC lets us directly set ERC-20 balances without ne
 keccak256(abi.encode(uint256(A), uint256(N)))
 ```
 
-Known slots:
+Known slots (also in `TOKENS` registry):
 - **USDC** balance mapping: slot **9**
 - **WETH** balance mapping: slot **3**
+- **DAI** balance mapping: slot **2**
+- **USDT** balance mapping: slot **2**
+- **WBTC** balance mapping: slot **0**
+
+Use `fund_token(w3, TOKENS["DAI"], address, amount)` for generic token funding.
 
 ### MetaMask Delegation Framework Caveats
 

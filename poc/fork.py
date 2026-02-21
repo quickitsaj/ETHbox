@@ -6,7 +6,7 @@ import signal
 
 from web3 import Web3
 
-from .constants import USDC, USDC_BALANCE_SLOT
+from .constants import USDC, USDC_BALANCE_SLOT, Token
 
 
 def start_anvil(rpc_url: str, block: int, port: int = 8545) -> subprocess.Popen:
@@ -56,6 +56,16 @@ def fund_usdc(w3: Web3, address: str, amount: int) -> None:
     )
     value = "0x" + amount.to_bytes(32, "big").hex()
     w3.provider.make_request("anvil_setStorageAt", [USDC, slot.hex(), value])
+
+
+def fund_token(w3: Web3, token: Token, address: str, amount: int) -> None:
+    """Set *address*'s balance for any token with a known balance slot."""
+    slot = Web3.solidity_keccak(
+        ["uint256", "uint256"],
+        [int(address, 16), token.balance_slot],
+    )
+    value = "0x" + amount.to_bytes(32, "big").hex()
+    w3.provider.make_request("anvil_setStorageAt", [token.address, slot.hex(), value])
 
 
 def fund_eth(w3: Web3, address: str, wei: int) -> None:
