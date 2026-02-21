@@ -5,5 +5,13 @@ description = "Delegation-aware Ethereum transaction simulator"
 requires-python = ">=3.10"
 dependencies = ["web3>=6.0,<7"]
 
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
 [project.scripts]
 ethbox-poc = "poc.main:main"
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: requires Anvil + MAINNET_RPC_URL (deselect with: -m 'not integration')",
+]
