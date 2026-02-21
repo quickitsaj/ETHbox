@@ -10,19 +10,27 @@ ETHbox simulates Ethereum transactions in a forked mainnet environment, with a f
 
 ### Phased Development
 
-- **Phase 0 (current):** Proof of concept (~200 lines Python, no frontend, no LLM). Validates three core assumptions: Anvil fork pipeline, price puppeteering, and caveat resolution mapping. Gated by a GO/NO-GO verdict.
-- **Phase 1+:** To be defined after Phase 0 passes. Expected to add frontend, LLM-powered intent parsing, and multi-token/multi-protocol support.
+- **Phase 0 (complete):** Proof of concept (~200 lines Python, no frontend, no LLM). Validates three core assumptions: Anvil fork pipeline, price puppeteering, and caveat resolution mapping. Verdict: **GO**.
+- **Phase 1 (in progress):** Delegation enforcement. Structured `Delegation` / `Caveat` data model, off-chain enforcement engine, on-chain enforcer contracts (hand-assembled EVM bytecode), violation testing, delegated call execution via Anvil impersonation.
+- **Phase 1 remaining:** Full MetaMask DelegationManager integration, frontend, LLM-powered intent parsing, multi-token support.
 
 ### Module Layout
 
 ```
 poc/
-  main.py       — Entry point. Orchestrates the 4-step POC pipeline.
-  fork.py       — Anvil lifecycle (start/stop), web3 connection, balance injection via storage slot overwrite.
-  swap.py       — USDC→WETH swap execution through Uniswap V3 SwapRouter02.
-  price.py      — Read Uniswap pool and Chainlink oracle prices. Manipulate pool price via large directional swaps.
-  caveats.py    — Map delegation intents to MetaMask CaveatBuilder caveat structures.
-  constants.py  — Mainnet contract addresses, minimal ABIs, storage slot indices.
+  main.py        — Entry point. Orchestrates the 4-step POC pipeline.
+  fork.py        — Anvil lifecycle (start/stop), web3 connection, balance injection via storage slot overwrite.
+  swap.py        — USDC→WETH swap execution through Uniswap V3 SwapRouter02.
+  price.py       — Read Uniswap pool and Chainlink oracle prices. Manipulate pool price via large directional swaps.
+  caveats.py     — Map delegation intents to MetaMask CaveatBuilder caveat structures.
+  constants.py   — Mainnet contract addresses, minimal ABIs, storage slot indices.
+  delegation.py  — Phase 1: Delegation/Caveat data model, off-chain enforcement, delegated call execution.
+  enforcers.py   — Phase 1: On-chain enforcer contracts as hand-assembled EVM bytecode.
+
+contracts/
+  AllowedTargetsEnforcer.sol  — Solidity reference for target whitelist enforcer.
+  AllowedMethodsEnforcer.sol  — Solidity reference for method whitelist enforcer.
+  ValueLimitEnforcer.sol      — Solidity reference for spending cap enforcer.
 ```
 
 ### POC Pipeline (main.py)
@@ -140,7 +148,11 @@ RPC_URL="$RPC_URL" pytest tests/test_integration_fork.py -v
 - Fork tests skip automatically when `RPC_URL` is not set
 - See `docs/caveat-testing-assessment.md` for the full rationale
 
-**Future: Delegation enforcement tests.** Full enforcement testing (deploying MetaMask's `DelegationManager` + `CaveatEnforcer` contracts, creating delegations, redeeming them, asserting revert on violations) requires the [MetaMask delegation-framework](https://github.com/MetaMask/delegation-framework) Solidity project. This is planned as a Foundry subproject.
+**Phase 1 delegation tests:**
+- `test_delegation_unit.py` — Pure Python tests for the enforcement engine. Tests each enforcer (AllowedTargets, AllowedMethods, ERC20TransferAmount), full delegation validation, violation scenarios (wrong target, wrong method, over-cap), and delegation creation from Phase 0 caveat maps.
+- `test_delegation_local.py` — Local Anvil tests for on-chain enforcers. Deploys the hand-assembled EVM contracts, tests pass/revert behavior, and exercises the full delegation execution flow.
+
+**Future:** Full enforcement testing with MetaMask's `DelegationManager` + `CaveatEnforcer` contracts requires the [MetaMask delegation-framework](https://github.com/MetaMask/delegation-framework) Solidity project as a Foundry subproject.
 
 ### Code Conventions
 
@@ -165,6 +177,9 @@ RPC_URL="$RPC_URL" pytest tests/test_integration_fork.py -v
 1. Define the caveat structure in `caveats.py`
 2. Compute any new function selectors via `Web3.keccak(text="functionSignature")`
 3. Add to the returned dict in the intent-mapping function
+4. Add an enforcer handler in `delegation.py` (`_enforce_caveat()`)
+5. Optionally add an on-chain enforcer contract in `enforcers.py`
+6. Update `delegation_from_caveat_map()` to map the new caveat type
 
 ### Changing the Fork Block
 
